@@ -86,3 +86,41 @@ class ProcesadorDICOM:
         print("  Intensidad promedio calculada.")
         print(self.dataframe[["PatientID", "Modality", "IntensidadPromedio"]].to_string())
         print()
+        # 4. Procesamiento de imágenes con OpenCV
+    
+
+    def procesar_imagenes(self, carpeta_salida="salida"):
+        
+        os.makedirs(carpeta_salida, exist_ok=True)
+
+        for ds in self.archivos:
+            try:
+                pixeles = ds.pixel_array
+
+                # 1. Normalizar a rango [0, 255] en uint8
+                pixeles = pixeles.astype(np.float32)
+                normalizada = cv2.normalize(pixeles, None, 0, 255, cv2.NORM_MINMAX)
+                normalizada = np.uint8(normalizada)
+
+                # 2. Ecualización del histograma
+                ecualizada = cv2.equalizeHist(normalizada)
+
+                # 3. Detección de bordes con Canny
+                # Umbral bajo=50, alto=150: equilibrio entre sensibilidad y ruido
+                bordes = cv2.Canny(ecualizada, 50, 150)
+
+                # Nombre base del archivo usando el StudyInstanceUID
+                uid = str(getattr(ds, "StudyInstanceUID", "sin_uid"))
+                uid_corto = uid[-10:]  # últimos 10 caracteres para no hacer nombre muy largo
+
+                # 4. Guardar imágenes resultantes
+                cv2.imwrite(f"{carpeta_salida}/{uid_corto}_ecualizada.png", ecualizada)
+                cv2.imwrite(f"{carpeta_salida}/{uid_corto}_bordes.png", bordes)
+
+                print(f"  Imágenes guardadas para UID: ...{uid_corto}")
+
+            except Exception:
+                # El archivo no tiene datos de píxeles accesibles
+                print(f"  Sin imagen de píxeles, se omite.")
+
+        print()
